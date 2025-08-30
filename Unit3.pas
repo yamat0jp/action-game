@@ -121,24 +121,19 @@ var
 begin
   i := player.X / FSize;
   j := player.Y / FSize;
-  if not player.Ground then
+  if (player.Speed_Y >= 0) and Strings[Round(i), Floor(j) + 1].IsInArray(arr)
+  then
   begin
-    if (player.Speed_Y >= 0) and Strings[Round(i), Floor(j) + 1].IsInArray(arr)
-    then
-    begin
-      player.Y := Floor(j) * FSize;
-      player.Speed_Y := 0;
-      player.Ground := true;
-      result := false;
-    end
-    else
-    begin
-      player.Ground := false;
-      result := true;
-    end;
+    player.Y := Floor(j) * FSize;
+    player.Speed_Y := 0;
+    player.Ground := true;
+    result := false;
   end
   else
-    result := false;
+  begin
+    player.Ground := false;
+    result := true;
+  end;
 end;
 
 function TDataField.CheckSideBlock(player: TPlayer): Boolean;
@@ -150,13 +145,13 @@ begin
   begin
     m := Round(player.Y / FSize);
     if player.Speed_X < 0 then
-      n := Floor(player.X / FSize) - 1
+      n := Floor(player.X / FSize)
     else
       n := Floor(player.X / FSize) + 1;
     if Strings[n, m].IsInArray(arr) then
     begin
       if player.Speed_X < 0 then
-        player.X := (n + 2) * FSize
+        player.X := (n + 1) * FSize
       else
         player.X := (n - 1) * FSize;
       player.Speed_X := 0;
