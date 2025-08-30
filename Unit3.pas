@@ -103,11 +103,12 @@ function TDataField.CheckHeadBlock(player: TPlayer): Boolean;
 var
   i, j: Single;
 begin
-  i := player.X / FSize;
+  i := player.X / FSize + 0.25;
   j := player.Y / FSize;
-  if (player.Speed_Y < 0) and Strings[Round(i), Ceil(j)].IsInArray(arr) then
+  if (player.Speed_Y < 0) and Strings[Round(i), Floor(j) - 1].IsInArray(arr)
+  then
   begin
-    player.Y := Ceil(j) * FSize;
+    player.Y := Floor(j) * FSize;
     player.Speed_Y := 0;
     result := true;
   end
