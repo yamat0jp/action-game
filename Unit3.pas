@@ -96,7 +96,6 @@ var
   FPSThread: TUpdate;
   arr: array of Char = ['X', 'Å†', 'Å°', 'ÅH'];
   kasoku: Single;
-  px, py: integer;
 
   { TDataField }
 
@@ -151,15 +150,15 @@ begin
   begin
     m := Round(player.Y / FSize);
     if player.Speed_X < 0 then
-      n := Floor(player.X / FSize)
+      n := Floor(player.X / FSize) - 1
     else
       n := Floor(player.X / FSize) + 1;
     if Strings[n, m].IsInArray(arr) then
     begin
       if player.Speed_X < 0 then
-        player.X := (n + 1) * FSize
+        player.X := (n + 2) * FSize
       else
-        player.X := n * FSize;
+        player.X := (n - 1) * FSize;
       player.Speed_X := 0;
       result := true;
     end;
@@ -215,13 +214,15 @@ end;
 
 procedure TDataField.GetImage(var Image: TBitmap);
 var
-  a, b, c: Single;
+  a, b: Single;
   rect: TRectF;
 begin
   if Image.Canvas.BeginScene then
     try
       Image.Canvas.Fill.Color := TAlphaColors.Black;
+      Image.Canvas.Font.size := FSize;
       Image.Canvas.FillRect(TRect.Create(0, 0, Image.Width, Image.Height), 1);
+      Image.Canvas.Fill.Color := TAlphaColors.White;
       for var j := 0 to 15 do
         for var i := 0 to 255 do
         begin
@@ -229,21 +230,8 @@ begin
           b := j * FSize;
           if (a - FDelta < 0) or (a - FDelta > Image.Width) then
             continue;
-          c := FDelta / FSize;
           rect := TRectF.Create(a - FDelta, b, a - FDelta + FSize, b + FSize);
-          Image.Canvas.Font.size := FSize;
-          if Abs(FPlayers[0].X - a - c) < 10 then
-            Image.Canvas.Fill.Color := TAlphaColors.Maroon
-          else
-            Image.Canvas.Fill.Color := TAlphaColors.White;
-          Image.Canvas.FillText(rect, Strings[i + Round(c), j], false, 1.0, [],
-            TTextAlign.Center);
-          Image.Canvas.FillText(TRectF.Create(20, 20, 400, 100),
-            px.ToString + ' / ' + py.ToString, false, 1, [],
-            TTextAlign.Leading);
-          Image.Canvas.Font.size := 10;
-          Image.Canvas.Fill.Color := TAlphaColors.Green;
-          Image.Canvas.FillText(rect, (i + Round(c)).ToString, false, 1, [],
+          Image.Canvas.FillText(rect, Strings[i, j], false, 1.0, [],
             TTextAlign.Center);
         end;
     finally
@@ -270,7 +258,6 @@ procedure TDataField.Move;
 
 begin
   for var boy in FPlayers do
-  begin
     case CheckState(boy) of
       Run:
         begin
@@ -296,11 +283,9 @@ begin
           boy.SetSpeed(0.01 * boy.Kasoku_X, kasoku);
           main(boy);
           CheckJump(boy);
+          CheckSideBlock(boy);
         end;
     end;
-    px := Round((boy.X+FDelta) / FSize);
-    py := Round(boy.Y / FSize);
-  end;
 end;
 
 { TPlayer }
@@ -395,6 +380,8 @@ begin
   case Key of
     VKSPACE:
       player.FDash := false;
+    VKRETURN:
+      Showmessage(Round(player.X / field.size).ToString);
   else
     player.Kasoku_X := 0;
   end;
@@ -420,7 +407,7 @@ begin
     finally
       Canvas.EndScene;
     end;
-  n := MIN(player.X, player.X - field.delta);
+  n := player.X - field.delta;
   Shape1.Position.X := n;
   Shape1.Position.Y := player.Y;
 end;
