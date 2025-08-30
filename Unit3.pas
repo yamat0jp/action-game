@@ -216,13 +216,12 @@ end;
 procedure TDataField.GetImage(var Image: TBitmap);
 var
   a, b, c: Single;
+  rect: TRectF;
 begin
   if Image.Canvas.BeginScene then
     try
       Image.Canvas.Fill.Color := TAlphaColors.Black;
       Image.Canvas.FillRect(TRect.Create(0, 0, Image.Width, Image.Height), 1);
-      Image.Canvas.Font.size := FSize;
-      Image.Canvas.Fill.Color := TAlphaColors.White;
       for var j := 0 to 15 do
         for var i := 0 to 255 do
         begin
@@ -231,12 +230,22 @@ begin
           if (a - FDelta < 0) or (a - FDelta > Image.Width) then
             continue;
           c := FDelta / FSize;
-          Image.Canvas.FillText(TRectF.Create(a - FDelta, b, a - FDelta + FSize,
-            b + FSize), Strings[i + Round(c), j], false, 1.0, [],
+          rect := TRectF.Create(a - FDelta, b, a - FDelta + FSize, b + FSize);
+          Image.Canvas.Font.size := FSize;
+          if Abs(FPlayers[0].X - a - c) < 10 then
+            Image.Canvas.Fill.Color := TAlphaColors.Maroon
+          else
+            Image.Canvas.Fill.Color := TAlphaColors.White;
+          Image.Canvas.FillText(rect, Strings[i + Round(c), j], false, 1.0, [],
+            TTextAlign.Center);
+          Image.Canvas.FillText(TRectF.Create(20, 20, 400, 100),
+            px.ToString + ' / ' + py.ToString, false, 1, [],
+            TTextAlign.Leading);
+          Image.Canvas.Font.size := 10;
+          Image.Canvas.Fill.Color := TAlphaColors.Green;
+          Image.Canvas.FillText(rect, (i + Round(c)).ToString, false, 1, [],
             TTextAlign.Center);
         end;
-      Image.Canvas.FillText(TRectF.Create(20, 20, 400, 100),
-        px.ToString +' / ' +py.ToString, false, 1, [], TTextAlign.Leading);
     finally
       Image.Canvas.EndScene;
     end;
@@ -289,7 +298,7 @@ begin
           CheckJump(boy);
         end;
     end;
-    px := Round(boy.X / FSize);
+    px := Round((boy.X+FDelta) / FSize);
     py := Round(boy.Y / FSize);
   end;
 end;
