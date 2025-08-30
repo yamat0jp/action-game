@@ -96,6 +96,7 @@ var
   FPSThread: TUpdate;
   arr: array of Char = ['X', 'Å†', 'Å°', 'ÅH'];
   kasoku: Single;
+  px, py: integer;
 
   { TDataField }
 
@@ -155,7 +156,10 @@ begin
       n := Floor(player.X / FSize) + 1;
     if Strings[n, m].IsInArray(arr) then
     begin
-      player.X := Round(player.X / FSize) * FSize;
+      if player.Speed_X < 0 then
+        player.X := (n + 1) * FSize
+      else
+        player.X := n * FSize;
       player.Speed_X := 0;
       result := true;
     end;
@@ -231,6 +235,8 @@ begin
             b + FSize), Strings[i + Round(c), j], false, 1.0, [],
             TTextAlign.Center);
         end;
+      Image.Canvas.FillText(TRectF.Create(20, 20, 400, 100),
+        px.ToString +' / ' +py.ToString, false, 1, [], TTextAlign.Leading);
     finally
       Image.Canvas.EndScene;
     end;
@@ -250,14 +256,12 @@ procedure TDataField.Move;
     player.X := player.X + player.Speed_X;
     player.Y := player.Y + player.Speed_Y;
     if player.X > scroll * FSize then
-    begin
       FDelta := player.X - scroll * FSize;
-      player.X := scroll * FSize;
-    end;
   end;
 
 begin
   for var boy in FPlayers do
+  begin
     case CheckState(boy) of
       Run:
         begin
@@ -285,6 +289,9 @@ begin
           CheckJump(boy);
         end;
     end;
+    px := Round(boy.X / FSize);
+    py := Round(boy.Y / FSize);
+  end;
 end;
 
 { TPlayer }
