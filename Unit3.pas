@@ -8,7 +8,7 @@ uses
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs, FMX.Objects;
 
 type
-  TCharState = (Run, bfChakuchi, afJump);
+  TCharState = (Run, afJump, bfChakuchi);
 
   TPlayer = class
   private
@@ -104,7 +104,7 @@ var
   i, j: Single;
 begin
   i := player.X / FSize;
-  j := player.Y / FSize - FSize / 4;
+  j := player.Y / FSize;
   if (player.Speed_Y < 0) and Strings[Round(i), Ceil(j)].IsInArray(arr) then
   begin
     player.Y := Ceil(j) * FSize;
@@ -123,40 +123,40 @@ begin
   j := player.Y / FSize;
   if not player.Ground then
   begin
-    if (player.Speed_Y > 0) and Strings[Round(i), Floor(j) + 1].IsInArray(arr)
+    if (player.Speed_Y >= 0) and Strings[Round(i), Floor(j) + 1].IsInArray(arr)
     then
     begin
       player.Y := Floor(j) * FSize;
       player.Speed_Y := 0;
-      player.Kasoku_Y := 0;
       player.Ground := true;
       result := false;
     end
     else
-      result:=true;
+    begin
+      player.Ground := false;
+      result := true;
+    end;
   end
   else
-    result := true;
+    result := false;
 end;
 
 function TDataField.CheckSideBlock(player: TPlayer): Boolean;
 var
-  i: Single;
-  n: integer;
+  n, m: integer;
 begin
   result := false;
   if player.Speed_X <> 0 then
   begin
-    i := player.Y / FSize + FSize / 4;
+    m := Round(player.Y / FSize);
     if player.Speed_X < 0 then
       n := Floor(player.X / FSize)
     else
       n := Floor(player.X / FSize) + 1;
-    if Strings[n, Round(i)].IsInArray(arr) then
+    if Strings[n, m].IsInArray(arr) then
     begin
       player.X := Round(player.X / FSize) * FSize;
       player.Speed_X := 0;
-      player.Kasoku_X := 0;
       result := true;
     end;
   end;
@@ -164,7 +164,7 @@ end;
 
 function TDataField.CheckState(player: TPlayer): TCharState;
 begin
-  if not player.Ground and (player.Speed_Y > 0) then
+  if not player.Ground and (player.Speed_Y >= 0) then
     result := bfChakuchi
   else if not player.Ground and (player.Speed_Y < 0) then
     result := afJump
@@ -178,7 +178,7 @@ var
   cnt: integer;
 begin
   FSize := size;
-  kasoku := 1.0 * size;
+  kasoku := 0.15 * size;
   cnt := 1;
   for var j := 0 to 15 do
     for var i := 0 to 254 do
@@ -195,7 +195,10 @@ begin
   henkan[' '] := '@';
   FPlayers := players;
   for var boy in players do
-    boy.MAX_SPEED := size * 0.25;
+  begin
+    boy.MAX_SPEED := size * 0.2;
+    boy.Kasoku_Y := kasoku;
+  end;
 end;
 
 destructor TDataField.Destroy;
@@ -222,8 +225,9 @@ begin
           a := i * FSize;
           b := j * FSize;
           c := FDelta / FSize;
-          Image.Canvas.FillText(TRectF.Create(a, b, a + FSize, b + FSize),
-            Strings[i + Round(c), j], false, 1.0, [], TTextAlign.Center);
+          Image.Canvas.FillText(TRectF.Create(a - FDelta, b, a - FDelta + FSize,
+            b + FSize), Strings[i + Round(c), j], false, 1.0, [],
+            TTextAlign.Center);
         end;
     finally
       Image.Canvas.EndScene;
@@ -253,28 +257,30 @@ procedure TDataField.Move;
 begin
   for var boy in FPlayers do
     case CheckState(boy) of
-      bfChakuchi:
-        begin
-          boy.SetSpeed(0.01 * boy.Kasoku_X, boy.Kasoku_Y);
-          CheckJump(boy);
-        end;
-      afJump:
-        begin
-          boy.SetSpeed(boy.Kasoku_X, boy.Kasoku_Y);
-          main(boy);
-          CheckHeadBlock(boy);
-          CheckSideBlock(boy);
-        end;
       Run:
         begin
           if boy.Kasoku_X = 0 then
             boy.Speed_X := 0.9 * boy.Speed_X
           else if boy.Dash then
-            boy.SetSpeed(1.7 * boy.Kasoku_X, 1.7 * boy.Kasoku_Y)
+            boy.SetSpeed(1.7 * boy.Kasoku_X, 0)
           else
-            boy.SetSpeed(boy.Kasoku_X, boy.Kasoku_Y);
+            boy.SetSpeed(boy.Kasoku_X, 0);
           main(boy);
           CheckSideBlock(boy);
+          CheckJump(boy);
+        end;
+      afJump:
+        begin
+          boy.SetSpeed(boy.Kasoku_X, kasoku);
+          main(boy);
+          CheckHeadBlock(boy);
+          CheckSideBlock(boy);
+        end;
+      bfChakuchi:
+        begin
+          boy.SetSpeed(0.01 * boy.Kasoku_X, kasoku);
+          main(boy);
+          CheckJump(boy);
         end;
     end;
 end;
@@ -283,11 +289,10 @@ end;
 
 procedure TPlayer.Jump;
 begin
-  if FState <> Run then
+  if FGround then
   begin
     FGround := false;
-    FState := afJump;
-    Kasoku_Y := -kasoku;
+    FSpeed_Y := -7 * kasoku;
   end;
 end;
 
@@ -308,7 +313,7 @@ end;
 procedure TPlayer.SetSpeed(X, Y: Single);
 begin
   FSpeed_X := limitPlus(FSpeed_X, X, MAX_SPEED);
-  FSpeed_Y := limitPlus(FSpeed_Y, Y, 1.5 * MAX_SPEED);
+  FSpeed_Y := limitPlus(FSpeed_Y, Y, 5 * MAX_SPEED);
 end;
 
 { TForm3 }
@@ -374,7 +379,6 @@ begin
       player.FDash := false;
   else
     player.Kasoku_X := 0;
-    player.Kasoku_Y := 0;
   end;
 end;
 
