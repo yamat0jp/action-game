@@ -12,12 +12,4 @@ object Form3: TForm3
   OnKeyDown = FormKeyDown
   OnKeyUp = FormKeyUp
   DesignerMasterStyle = 0
-  object Shape1: TRectangle
-    Fill.Color = claWhite
-    Position.X = 200.000000000000000000
-    Position.Y = 240.000000000000000000
-    Size.Width = 50.000000000000000000
-    Size.Height = 50.000000000000000000
-    Size.PlatformDefault = False
-  end
 end

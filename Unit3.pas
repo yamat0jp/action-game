@@ -62,7 +62,6 @@ type
   end;
 
   TForm3 = class(TForm)
-    Shape1: TRectangle;
     procedure FormCreate(Sender: TObject);
     procedure FormDestroy(Sender: TObject);
     procedure FormKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar;
@@ -90,7 +89,7 @@ implementation
 
 {$R *.fmx}
 
-uses update, System.Math, System.Character;
+uses update, System.Math, System.Character, System.Threading;
 
 var
   FPSThread: TUpdate;
@@ -202,8 +201,6 @@ end;
 
 destructor TDataField.Destroy;
 begin
-  for var boy in FPlayers do
-    boy.Free;
   Finalize(FPlayers);
   inherited;
 end;
@@ -230,6 +227,13 @@ begin
           Image.Canvas.FillText(rect, Strings[i, j], false, 1.0, [],
             TTextAlign.Center);
         end;
+      for var boy in FPlayers do
+      begin
+        a := boy.X - FDelta;
+        b := boy.Y;
+        Image.Canvas.FillText(TRectF.Create(a, b, a + FSize, b + FSize), 'A',
+          false, 1, [], TTextAlign.Center);
+      end;
     finally
       Image.Canvas.EndScene;
     end;
@@ -349,6 +353,7 @@ end;
 procedure TForm3.FormDestroy(Sender: TObject);
 begin
   FPSThread.Free;
+  player.Free;
   field.Free;
   buff.Free;
 end;
@@ -376,8 +381,6 @@ begin
   case Key of
     VKSPACE:
       player.FDash := false;
-    VKRETURN:
-      Showmessage(Round(player.X / field.size).ToString);
   else
     player.Kasoku_X := 0;
   end;
@@ -387,8 +390,6 @@ procedure TForm3.Init;
 begin
   player.X := 0;
   player.Y := 13 * field.size;
-  Shape1.Width := field.size;
-  Shape1.Height := field.size;
 end;
 
 procedure TForm3.UPDATE_INTERVALTimer(Sender: TObject);
@@ -404,8 +405,6 @@ begin
       Canvas.EndScene;
     end;
   n := player.X - field.delta;
-  Shape1.Position.X := n;
-  Shape1.Position.Y := player.Y;
 end;
 
 end.
