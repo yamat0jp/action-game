@@ -220,10 +220,12 @@ begin
       Image.Canvas.Font.size := FSize;
       Image.Canvas.Fill.Color := TAlphaColors.White;
       for var j := 0 to 15 do
-        for var i := 0 to 29 do
+        for var i := 0 to 255 do
         begin
           a := i * FSize;
           b := j * FSize;
+          if (a - FDelta < 0) or (a - FDelta > Image.Width) then
+            continue;
           c := FDelta / FSize;
           Image.Canvas.FillText(TRectF.Create(a - FDelta, b, a - FDelta + FSize,
             b + FSize), Strings[i + Round(c), j], false, 1.0, [],
