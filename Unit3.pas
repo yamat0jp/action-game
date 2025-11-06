@@ -10,6 +10,10 @@ uses
 type
   TCharState = (Run, afJump, bfChakuchi);
 
+  TCheckRec = record
+    top1, top2, side1, side2, under1, under2: TPointF;
+  end;
+
   TPlayer = class
   private
     FMAX_SPEED: Single;
@@ -25,6 +29,7 @@ type
     property Ground: Boolean read FGround write FGround;
   public
     procedure Jump;
+    procedure CheckPoints(out CheckRec: TCheckRec; size: integer);
     property X: Single read FX write FX;
     property Y: Single read FY write FY;
     property Kasoku_X: Single read FKasoku_X write FKasoku_X;
@@ -57,7 +62,6 @@ type
     procedure Move;
     procedure GetImage(var Image: TBitmap);
     property Strings[X, Y: integer]: Char read GetStrings; default;
-    property size: integer read FSize;
     property delta: Single read FDelta;
   end;
 
@@ -76,7 +80,6 @@ type
   public
     { public êÈåæ }
     procedure UPDATE_INTERVALTimer(Sender: TObject);
-    procedure Init;
   end;
 
 const
@@ -100,14 +103,18 @@ var
 
 function TDataField.CheckHeadBlock(player: TPlayer): Boolean;
 var
-  i, j: Single;
+  i, j, m, n: Single;
+  rec: TCheckRec;
 begin
-  i := player.X / FSize + 0.25;
-  j := player.Y / FSize;
-  if (player.Speed_Y < 0) and Strings[Round(i), Floor(j) - 1].IsInArray(arr)
-  then
+  player.CheckPoints(rec, FSize);
+  i := rec.top1.X / FSize;
+  j := rec.top1.Y / FSize;
+  m := rec.top2.X / FSize;
+  n := rec.top2.Y / FSize;
+  if (player.Speed_Y < 0) and (Strings[Floor(i), Floor(j)].IsInArray(arr) or
+    Strings[Floor(m), Floor(n)].IsInArray(arr)) then
   begin
-    player.Y := Floor(j) * FSize;
+    player.Y := Ceil(j) * FSize;
     player.Speed_Y := 0;
     result := true;
   end
@@ -117,14 +124,18 @@ end;
 
 function TDataField.CheckJump(player: TPlayer): Boolean;
 var
-  i, j: Single;
+  i, j, m, n: Single;
+  rec: TCheckRec;
 begin
-  i := player.X / FSize;
-  j := player.Y / FSize;
-  if (player.Speed_Y >= 0) and Strings[Round(i), Floor(j) + 1].IsInArray(arr)
-  then
+  player.CheckPoints(rec, FSize);
+  i := rec.under1.X / FSize;
+  j := rec.under1.Y / FSize;
+  m := rec.under2.X / FSize;
+  n := rec.under2.Y / FSize;
+  if (player.Speed_Y >= 0) and (Strings[Floor(i), Floor(j)].IsInArray(arr) or
+    Strings[Floor(m), Floor(n)].IsInArray(arr)) then
   begin
-    player.Y := Floor(j) * FSize;
+    player.Y := Floor(j) * FSize - FSize;
     player.Speed_Y := 0;
     player.Ground := true;
     result := false;
@@ -138,26 +149,26 @@ end;
 
 function TDataField.CheckSideBlock(player: TPlayer): Boolean;
 var
-  n, m: integer;
+  i, j, n, m: Single;
+  rec: TCheckRec;
 begin
-  result := false;
-  if player.Speed_X <> 0 then
+  player.CheckPoints(rec, FSize);
+  n := rec.side1.X / FSize;
+  m := rec.side1.Y / FSize;
+  i := rec.side2.X / FSize;
+  j := rec.side2.Y / FSize;
+  if ((player.Speed_X < 0) and Strings[Floor(n), Floor(m)].IsInArray(arr)) or
+    ((player.Speed_X > 0) and Strings[Floor(i), Floor(j)].IsInArray(arr)) then
   begin
-    m := Round(player.Y / FSize);
     if player.Speed_X < 0 then
-      n := Floor(player.X / FSize)
+      player.X := Ceil(n) * FSize
     else
-      n := Floor(player.X / FSize) + 1;
-    if Strings[n, m].IsInArray(arr) then
-    begin
-      if player.Speed_X < 0 then
-        player.X := (n + 1) * FSize
-      else
-        player.X := (n - 1) * FSize;
-      player.Speed_X := 0;
-      result := true;
-    end;
-  end;
+      player.X := Floor(i) * FSize - FSize - 1;
+    player.Speed_X := 0;
+    result := true;
+  end
+  else
+    result := false;
 end;
 
 function TDataField.CheckState(player: TPlayer): TCharState;
@@ -192,10 +203,12 @@ begin
   henkan['c'] := '~';
   henkan[' '] := 'Å@';
   FPlayers := players;
-  for var boy in players do
+  for var i := 0 to High(players) do
   begin
-    boy.MAX_SPEED := size * 0.2;
-    boy.Kasoku_Y := kasoku;
+    players[i].X := i * FSize;
+    players[i].Y := 13 * FSize;
+    players[i].MAX_SPEED := size * 0.2;
+    players[i].Kasoku_Y := kasoku;
   end;
 end;
 
@@ -290,6 +303,16 @@ end;
 
 { TPlayer }
 
+procedure TPlayer.CheckPoints(out CheckRec: TCheckRec; size: integer);
+begin
+  CheckRec.top1 := TPointF.Create(X + size / 4, Y);
+  CheckRec.top2 := TPointF.Create(X + size - size / 4, Y);
+  CheckRec.side1 := TPointF.Create(X, Y + size / 2);
+  CheckRec.side2 := TPointF.Create(X + size, Y + size / 2);
+  CheckRec.under1 := TPointF.Create(X + size / 4, Y + size);
+  CheckRec.under2 := TPointF.Create(X + size - size / 4, Y + size);
+end;
+
 procedure TPlayer.Jump;
 begin
   if FGround then
@@ -347,7 +370,6 @@ begin
   field := TDataField.Create(str, [player], size);
   FPSThread := TUpdate.Create;
   buff := TBitmap.Create(ClientWidth, ClientHeight);
-  Init;
 end;
 
 procedure TForm3.FormDestroy(Sender: TObject);
@@ -386,15 +408,7 @@ begin
   end;
 end;
 
-procedure TForm3.Init;
-begin
-  player.X := 0;
-  player.Y := 13 * field.size;
-end;
-
 procedure TForm3.UPDATE_INTERVALTimer(Sender: TObject);
-var
-  n: Single;
 begin
   field.Move;
   field.GetImage(buff);
@@ -404,7 +418,6 @@ begin
     finally
       Canvas.EndScene;
     end;
-  n := player.X - field.delta;
 end;
 
 end.

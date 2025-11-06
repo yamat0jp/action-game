@@ -21,7 +21,7 @@ type
 
   TPlayer = class
   const
-    MAX_SPEED = 0.15;
+    MAX_SPEED = 0.25;
   private
     FX, FY: Single;
     FSpeed_X, FSpeed_Y: Single;
@@ -63,8 +63,7 @@ type
   end;
 
 const
-  UPDATE_FPS = 50;
-  DRAW_FPS = 10;
+  UPDATE_FPS = 60;
   kasoku = 0.5;
 
 var
@@ -73,7 +72,13 @@ var
 implementation
 
 {$R *.dfm}
-{ TDataField }
+
+uses update;
+
+var
+  FPSThread: TUpdate;
+
+  { TDataField }
 
 constructor TDataField.Create(const str: AnsiString);
 var
@@ -183,15 +188,15 @@ begin
     + '                      q                                                                                                                                                                                                                                        '
     + '                                                                                                                                                                                                                                                               '
     + '                                                                                                                                                                                                                                                               '
-    + '                                             pp         pp                  bqb              b      bb                                                                                                                                                         '
+    + '                                                                            bqb              b      bb                                                                                                                                                         '
     + '  m             q   bqbqb             pp     pp  m      pp                                       m                                                                                                                                                             '
     + ' mmm                        pp        pp     pp mmm     pp      m                               mmm                                                                                                                                                            '
     + 'mmmmm      tttttmmm    ttt  pp        pp ttttppmmmmm    pptttttmmm    ttt               tttt   mmmmm                                                                                                                                                           '
     + 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
     + 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-  // 111111111122222222223333333333444444444455555555556666666666777777777788888888889999999999000000000011111111112222222222333333333344444444445555555555666666666677777777778888888888999999999900000000001111111111222222222233333333334444444444555555555512345
   Player := TPlayer.Create;
   Field := TDataField.Create(str);
+  FPSThread := TUpdate.Create;
   Init;
 end;
 
@@ -199,6 +204,7 @@ procedure TForm1.FormDestroy(Sender: TObject);
 begin
   Player.Free;
   Field.Free;
+  FPSThread.Free;
 end;
 
 procedure TForm1.FormKeyDown(Sender: TObject; var Key: Word;
@@ -233,7 +239,7 @@ procedure TForm1.FormPaint(Sender: TObject);
 begin
   for var j := 0 to 15 do
     for var i := 0 to 255 do
-      if ((i - Player.X) * size < ClientWidth) and ((j - 10) * size > 0) then
+      if (i - Player.X) * size < ClientWidth then
         Canvas.TextOut(Round((i - Player.X + delta) * size), j * size,
           Field[i, j]);
 end;
@@ -255,14 +261,10 @@ var
 begin
   Player.move;
   dec(time);
-  if time = 0 then
-  begin
-    Refresh;
-    n := MIN(delta * size, Round(Player.X * size));
-    Shape1.Left := n;
-    Shape1.Top := Round(Player.Y * size);
-    time := 3;
-  end;
+  Refresh;
+  n := MIN(delta * size, Round(Player.X * size));
+  Shape1.Left := n;
+  Shape1.Top := Round(Player.Y * size);
 end;
 
 procedure TPlayer.SetJump(const Value: Boolean);

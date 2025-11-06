@@ -24,6 +24,7 @@ object Form1: TForm1
     Height = 65
   end
   object UPDATE_INTERVAL: TTimer
+    Enabled = False
     Interval = 16
     OnTimer = UPDATE_INTERVALTimer
     Left = 256
