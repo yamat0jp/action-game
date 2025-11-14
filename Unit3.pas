@@ -222,6 +222,7 @@ procedure TDataField.GetImage(var Image: TBitmap);
 var
   a, b: Single;
   rect: TRectF;
+  chrec: TCheckRec;
 begin
   if Image.Canvas.BeginScene then
     try
@@ -246,6 +247,24 @@ begin
         b := boy.Y;
         Image.Canvas.FillText(TRectF.Create(a, b, a + FSize, b + FSize), 'A',
           false, 1, [], TTextAlign.Center);
+        boy.CheckPoints(chrec, FSize);
+        with chrec do
+        begin
+          top1.X := top1.X - FDelta;
+          top2.X := top2.X - FDelta;
+          side1.X := side1.X - FDelta;
+          side2.X := side2.X - FDelta;
+          under1.X := under1.X - FDelta;
+          under2.X := under2.X - FDelta;
+        end;
+        Image.Canvas.Stroke.Thickness := 5;
+        Image.Canvas.Stroke.Color := TAlphaColors.Green;
+        Image.Canvas.DrawLine(chrec.top1, chrec.top1, 1.0);
+        Image.Canvas.DrawLine(chrec.top2, chrec.top2, 1.0);
+        Image.Canvas.DrawLine(chrec.side1, chrec.side1, 1.0);
+        Image.Canvas.DrawLine(chrec.side2, chrec.side2, 1.0);
+        Image.Canvas.DrawLine(chrec.under1, chrec.under1, 1.0);
+        Image.Canvas.DrawLine(chrec.under2, chrec.under2, 1.0);
       end;
     finally
       Image.Canvas.EndScene;

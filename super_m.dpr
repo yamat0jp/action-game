@@ -2,7 +2,8 @@ program super_m;
 
 uses
   Vcl.Forms,
-  Unit1 in 'Unit1.pas' {Form1};
+  Unit1 in 'Unit1.pas' {Form1},
+  update in 'update.pas';
 
 {$R *.res}
 
