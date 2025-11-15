@@ -8,7 +8,7 @@ uses
   FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs, FMX.Objects;
 
 type
-  TCharState = (Run, afJump, bfChakuchi);
+  TCharState = (Run, afJump, bfChakuchi, Sprite);
 
   TCheckRec = record
     top1, top2, side1, side2, under1, under2, center: TPointF;
@@ -24,13 +24,18 @@ type
     FDash: Boolean;
     FState: TCharState;
     FGround: Boolean;
+    FVisible: Boolean;
+    FLetter: Char;
     function limitPlus(X, delta, MAX: Single): Single;
   protected
     procedure SetSpeed(X, Y: Single);
     property Ground: Boolean read FGround write FGround;
+    property Letter: Char read FLetter write FLetter;
   public
+    constructor Create;
     procedure Jump;
     procedure CheckPoints(out CheckRec: TCheckRec; size: integer);
+    procedure GameOver;
     property X: Single read FX write FX;
     property Y: Single read FY write FY;
     property Kasoku_X: Single read FKasoku_X write FKasoku_X;
@@ -41,6 +46,7 @@ type
     property MAX_SPEED: Single read FMAX_SPEED write FMAX_SPEED;
     property Full_Speed: Single read FFull_Speed write FFull_Speed;
     property State: TCharState read FState write FState;
+    property Visible: Boolean read FVisible write FVisible;
   end;
 
   TDataField = class
@@ -59,6 +65,7 @@ type
     function CheckSideBlock(player: TPlayer): Boolean;
   protected
     function IsBlock(position: TPointF): Boolean;
+    function IsGameOver(player: TPlayer): Boolean;
   public
     constructor Create(const str: string; players: TArray<TPlayer>;
       const size: integer = 30);
@@ -83,6 +90,7 @@ type
   public
     { public 宣言 }
     procedure UPDATE_INTERVALTimer(Sender: TObject);
+    procedure terminated(Sender: TObject);
   end;
 
 const
@@ -99,7 +107,7 @@ uses update, System.Math, System.Character, System.Threading;
 
 var
   FPSThread: TUpdate;
-  arr: array of Char = ['X', '□', '■', '？'];
+  arr: array of Char = ['□', '■', '？'];
   kasoku: Single;
 
   { TDataField }
@@ -168,6 +176,8 @@ end;
 
 function TDataField.CheckState(player: TPlayer): TCharState;
 begin
+  if player.State = Sprite then
+    Exit(player.State);
   if not player.Ground and (player.Speed_Y >= 0) then
     result := bfChakuchi
   else if not player.Ground and (player.Speed_Y < 0) then
@@ -197,15 +207,24 @@ begin
   henkan['q'] := '？';
   henkan['c'] := '~';
   henkan[' '] := '　';
+  henkan['X'] := 'X';
   FPlayers := players;
   for var i := 0 to High(players) do
   begin
     players[i].X := i * FSize;
     players[i].Y := 13 * FSize;
     players[i].MAX_SPEED := size * 0.2;
-    players[i].Kasoku_Y := kasoku;
-    players[i].Full_Speed := 2.0;
   end;
+end;
+
+function TDataField.IsGameOver(player: TPlayer): Boolean;
+var
+  X, Y: Single;
+begin
+  X := player.X + FSize / 2;
+  Y := player.Y + FSize / 2;
+  result := (Strings[Floor(X / FSize), Floor(Y / FSize)] = 'X') and
+    (player.Letter <> 'X');
 end;
 
 procedure TDataField.GetImage(var Image: TBitmap);
@@ -233,10 +252,12 @@ begin
         end;
       for var boy in FPlayers do
       begin
+        if not boy.Visible then
+          continue;
         a := boy.X - FDelta;
         b := boy.Y;
-        Image.Canvas.FillText(TRectF.Create(a, b, a + FSize, b + FSize), 'A',
-          false, 1, [], TTextAlign.center);
+        Image.Canvas.FillText(TRectF.Create(a, b, a + FSize, b + FSize),
+          boy.Letter, false, 1, [], TTextAlign.center);
         boy.CheckPoints(chrec, FSize);
         with chrec do
         begin
@@ -292,6 +313,9 @@ procedure TDataField.Move;
 
 begin
   for var boy in FPlayers do
+  begin
+    if not boy.Visible then
+      continue;
     case CheckState(boy) of
       Run:
         begin
@@ -316,7 +340,12 @@ begin
           CheckJump(boy);
           CheckSideBlock(boy);
         end;
+      Sprite:
+        continue;
     end;
+    if IsGameOver(boy) then
+      boy.GameOver;
+  end;
 end;
 
 { TPlayer }
@@ -330,6 +359,47 @@ begin
   CheckRec.under1 := TPointF.Create(X + size / 4, Y + size);
   CheckRec.under2 := TPointF.Create(X + size - size / 4, Y + size);
   CheckRec.center := TPointF.Create(X + size / 2, Y + size / 5);
+end;
+
+constructor TPlayer.Create;
+begin
+  inherited;
+  FKasoku_Y := kasoku;
+  FFull_Speed := 2.0;
+  FLetter := 'A';
+  FVisible := true;
+end;
+
+procedure TPlayer.GameOver;
+begin
+  FState := Sprite;
+  FLetter := 'X';
+  FDash := false;
+  FSpeed_X := 0;
+  FKasoku_X := 0;
+  FKasoku_Y := 0;
+  TTask.Run(
+    procedure
+    begin
+      Sleep(50);
+      FSpeed_Y := -10 * kasoku;
+      for var i := 1 to 3 do
+      begin
+        FY := FY + FSpeed_Y;
+        Sleep(10);
+      end;
+      Sleep(1000);
+      FSpeed_X := kasoku;
+      FSpeed_Y := -7 * kasoku;
+      for var i := 1 to 50 do
+      begin
+        FX := FX + FSpeed_X;
+        FY := FY + FSpeed_Y;
+        FSpeed_Y := FSpeed_Y + kasoku;
+        Sleep(50);
+      end;
+      FVisible:=false;
+    end);
 end;
 
 procedure TPlayer.Jump;
@@ -386,6 +456,7 @@ begin
   player := TPlayer.Create;
   field := TDataField.Create(str, [player], size);
   FPSThread := TUpdate.Create;
+  FPSThread.OnTerminate := terminated;
   buff := TBitmap.Create(ClientWidth, ClientHeight);
 end;
 
@@ -398,8 +469,10 @@ begin
 end;
 
 procedure TForm3.FormKeyDown(Sender: TObject; var Key: Word;
-  var KeyChar: WideChar; Shift: TShiftState);
+var KeyChar: WideChar; Shift: TShiftState);
 begin
+  if player.State = Sprite then
+    Exit;
   case Key of
     VKLEFT:
       player.Kasoku_X := -kasoku;
@@ -413,8 +486,10 @@ begin
 end;
 
 procedure TForm3.FormKeyUp(Sender: TObject; var Key: Word;
-  var KeyChar: WideChar; Shift: TShiftState);
+var KeyChar: WideChar; Shift: TShiftState);
 begin
+  if player.State = Sprite then
+    Exit;
   case Key of
     VKLEFT, VKRIGHT:
       player.Kasoku_X := 0;
@@ -423,8 +498,15 @@ begin
     player.Dash := false;
 end;
 
+procedure TForm3.terminated(Sender: TObject);
+begin
+  Close;
+end;
+
 procedure TForm3.UPDATE_INTERVALTimer(Sender: TObject);
 begin
+  if not player.Visible then
+    FPSThread.Terminate;
   field.Move;
   field.GetImage(buff);
   if Canvas.BeginScene then

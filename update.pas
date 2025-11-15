@@ -9,7 +9,7 @@ type
   TUpdate = class(TThread)
   private
     { Private éŒ¾ }
-  protected
+  public
     procedure Execute; override;
   end;
 
