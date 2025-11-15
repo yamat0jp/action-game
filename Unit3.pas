@@ -11,7 +11,7 @@ type
   TCharState = (Run, afJump, bfChakuchi);
 
   TCheckRec = record
-    top1, top2, side1, side2, under1, under2: TPointF;
+    top1, top2, side1, side2, under1, under2, center: TPointF;
   end;
 
   TPlayer = class
@@ -57,6 +57,8 @@ type
     function CheckJump(player: TPlayer): Boolean;
     function CheckState(player: TPlayer): TCharState;
     function CheckSideBlock(player: TPlayer): Boolean;
+  protected
+    function IsBlock(position: TPointF): Boolean;
   public
     constructor Create(const str: string; players: TArray<TPlayer>;
       const size: integer = 30);
@@ -104,18 +106,12 @@ var
 
 function TDataField.CheckHeadBlock(player: TPlayer): Boolean;
 var
-  i, j, m, n: Single;
   rec: TCheckRec;
 begin
   player.CheckPoints(rec, FSize);
-  i := rec.top1.X / FSize;
-  j := rec.top1.Y / FSize;
-  m := rec.top2.X / FSize;
-  n := rec.top2.Y / FSize;
-  if (player.Speed_Y < 0) and (Strings[Floor(i), Floor(j)].IsInArray(arr) or
-    Strings[Floor(m), Floor(n)].IsInArray(arr)) then
+  if (player.Speed_Y < 0) and IsBlock(rec.top1) or IsBlock(rec.top2) then
   begin
-    player.Y := Ceil(j) * FSize;
+    player.Y := Ceil(rec.top1.Y / FSize) * FSize;
     player.FSpeed_Y := 0;
     result := true;
   end
@@ -125,18 +121,21 @@ end;
 
 function TDataField.CheckJump(player: TPlayer): Boolean;
 var
-  i, j, m, n: Single;
   rec: TCheckRec;
 begin
   player.CheckPoints(rec, FSize);
-  i := rec.under1.X / FSize;
-  j := rec.under1.Y / FSize;
-  m := rec.under2.X / FSize;
-  n := rec.under2.Y / FSize;
-  if (player.Speed_Y >= 0) and (Strings[Floor(i), Floor(j)].IsInArray(arr) or
-    Strings[Floor(m), Floor(n)].IsInArray(arr)) then
+  if (player.Speed_Y >= 0) and IsBlock(rec.under1) and IsBlock(rec.under2) and
+    not IsBlock(rec.center) then
   begin
-    player.Y := Floor(j) * FSize - FSize;
+    player.Y := Floor(rec.under1.Y / FSize) * FSize - FSize;
+    player.FSpeed_Y := 0;
+    player.Ground := true;
+    result := false;
+  end
+  else if not player.Ground and (player.Speed_Y >= 0) and IsBlock(rec.center)
+  then
+  begin
+    player.Y := Floor(rec.center.Y / FSize) * FSize - FSize;
     player.FSpeed_Y := 0;
     player.Ground := true;
     result := false;
@@ -150,21 +149,16 @@ end;
 
 function TDataField.CheckSideBlock(player: TPlayer): Boolean;
 var
-  i, j, n, m: Single;
   rec: TCheckRec;
 begin
   player.CheckPoints(rec, FSize);
-  n := rec.side1.X / FSize;
-  m := rec.side1.Y / FSize;
-  i := rec.side2.X / FSize;
-  j := rec.side2.Y / FSize;
-  if ((player.Speed_X < 0) and Strings[Floor(n), Floor(m)].IsInArray(arr)) or
-    ((player.Speed_X > 0) and Strings[Floor(i), Floor(j)].IsInArray(arr)) then
+  if ((player.Speed_X < 0) and IsBlock(rec.side1)) or
+    ((player.Speed_X > 0) and IsBlock(rec.side2)) then
   begin
     if player.Speed_X < 0 then
-      player.X := Ceil(n) * FSize
+      player.X := Ceil(rec.side1.X / FSize) * FSize
     else
-      player.X := Floor(i) * FSize - FSize - 1;
+      player.X := Floor(rec.side2.X / FSize) * FSize - FSize - 1;
     player.FSpeed_X := 0;
     result := true;
   end
@@ -235,14 +229,14 @@ begin
             continue;
           rect := TRectF.Create(a - FDelta, b, a - FDelta + FSize, b + FSize);
           Image.Canvas.FillText(rect, Strings[i, j], false, 1.0, [],
-            TTextAlign.Center);
+            TTextAlign.center);
         end;
       for var boy in FPlayers do
       begin
         a := boy.X - FDelta;
         b := boy.Y;
         Image.Canvas.FillText(TRectF.Create(a, b, a + FSize, b + FSize), 'A',
-          false, 1, [], TTextAlign.Center);
+          false, 1, [], TTextAlign.center);
         boy.CheckPoints(chrec, FSize);
         with chrec do
         begin
@@ -252,6 +246,7 @@ begin
           side2.X := side2.X - FDelta;
           under1.X := under1.X - FDelta;
           under2.X := under2.X - FDelta;
+          center.X := center.X - FDelta;
         end;
         Image.Canvas.Stroke.Thickness := 5;
         Image.Canvas.Stroke.Color := TAlphaColors.Green;
@@ -261,6 +256,8 @@ begin
         Image.Canvas.DrawLine(chrec.side2, chrec.side2, 1.0);
         Image.Canvas.DrawLine(chrec.under1, chrec.under1, 1.0);
         Image.Canvas.DrawLine(chrec.under2, chrec.under2, 1.0);
+        Image.Canvas.Stroke.Color := TAlphaColors.Red;
+        Image.Canvas.DrawLine(chrec.center, chrec.center, 1.0);
       end;
     finally
       Image.Canvas.EndScene;
@@ -273,6 +270,15 @@ begin
     result := 'X'
   else
     result := henkan[FField[X, Y]];
+end;
+
+function TDataField.IsBlock(position: TPointF): Boolean;
+var
+  i, j: integer;
+begin
+  i := Floor(position.X / FSize);
+  j := Floor(position.Y / FSize);
+  result := Strings[i, j].IsInArray(arr);
 end;
 
 procedure TDataField.Move;
@@ -293,8 +299,8 @@ begin
             boy.FSpeed_X := 0.3 * boy.Speed_X;
           boy.SetSpeed(boy.Kasoku_X, 0);
           main(boy);
-          CheckSideBlock(boy);
           CheckJump(boy);
+          CheckSideBlock(boy);
         end;
       afJump:
         begin
@@ -323,6 +329,7 @@ begin
   CheckRec.side2 := TPointF.Create(X + size, Y + size / 2);
   CheckRec.under1 := TPointF.Create(X + size / 4, Y + size);
   CheckRec.under2 := TPointF.Create(X + size - size / 4, Y + size);
+  CheckRec.center := TPointF.Create(X + size / 2, Y + size / 5);
 end;
 
 procedure TPlayer.Jump;
