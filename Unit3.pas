@@ -17,6 +17,7 @@ type
   TPlayer = class
   private
     FMAX_SPEED: Single;
+    FFull_Speed: Single;
     FX, FY: Single;
     FSpeed_X, FSpeed_Y: Single;
     FKasoku_X, FKasoku_Y: Single;
@@ -35,9 +36,10 @@ type
     property Kasoku_X: Single read FKasoku_X write FKasoku_X;
     property Kasoku_Y: Single read FKasoku_Y write FKasoku_Y;
     property Dash: Boolean read FDash write FDash;
-    property Speed_X: Single read FSpeed_X write FSpeed_X;
-    property Speed_Y: Single read FSpeed_Y write FSpeed_Y;
+    property Speed_X: Single read FSpeed_X;
+    property Speed_Y: Single read FSpeed_Y;
     property MAX_SPEED: Single read FMAX_SPEED write FMAX_SPEED;
+    property Full_Speed: Single read FFull_Speed write FFull_Speed;
     property State: TCharState read FState write FState;
   end;
 
@@ -58,7 +60,6 @@ type
   public
     constructor Create(const str: string; players: TArray<TPlayer>;
       const size: integer = 30);
-    destructor Destroy; override;
     procedure Move;
     procedure GetImage(var Image: TBitmap);
     property Strings[X, Y: integer]: Char read GetStrings; default;
@@ -115,7 +116,7 @@ begin
     Strings[Floor(m), Floor(n)].IsInArray(arr)) then
   begin
     player.Y := Ceil(j) * FSize;
-    player.Speed_Y := 0;
+    player.FSpeed_Y := 0;
     result := true;
   end
   else
@@ -136,7 +137,7 @@ begin
     Strings[Floor(m), Floor(n)].IsInArray(arr)) then
   begin
     player.Y := Floor(j) * FSize - FSize;
-    player.Speed_Y := 0;
+    player.FSpeed_Y := 0;
     player.Ground := true;
     result := false;
   end
@@ -164,7 +165,7 @@ begin
       player.X := Ceil(n) * FSize
     else
       player.X := Floor(i) * FSize - FSize - 1;
-    player.Speed_X := 0;
+    player.FSpeed_X := 0;
     result := true;
   end
   else
@@ -209,13 +210,8 @@ begin
     players[i].Y := 13 * FSize;
     players[i].MAX_SPEED := size * 0.2;
     players[i].Kasoku_Y := kasoku;
+    players[i].Full_Speed := 2.0;
   end;
-end;
-
-destructor TDataField.Destroy;
-begin
-  Finalize(FPlayers);
-  inherited;
 end;
 
 procedure TDataField.GetImage(var Image: TBitmap);
@@ -294,25 +290,22 @@ begin
       Run:
         begin
           if boy.Kasoku_X = 0 then
-            boy.Speed_X := 0.9 * boy.Speed_X
-          else if boy.Dash then
-            boy.SetSpeed(1.7 * boy.Kasoku_X, 0)
-          else
-            boy.SetSpeed(boy.Kasoku_X, 0);
+            boy.FSpeed_X := 0.3 * boy.Speed_X;
+          boy.SetSpeed(boy.Kasoku_X, 0);
           main(boy);
           CheckSideBlock(boy);
           CheckJump(boy);
         end;
       afJump:
         begin
-          boy.SetSpeed(boy.Kasoku_X, kasoku);
+          boy.SetSpeed(0, kasoku);
           main(boy);
           CheckHeadBlock(boy);
           CheckSideBlock(boy);
         end;
       bfChakuchi:
         begin
-          boy.SetSpeed(0.01 * boy.Kasoku_X, kasoku);
+          boy.SetSpeed(boy.Kasoku_X, kasoku);
           main(boy);
           CheckJump(boy);
           CheckSideBlock(boy);
@@ -337,20 +330,18 @@ begin
   if FGround then
   begin
     FGround := false;
-    FSpeed_Y := -7 * kasoku;
+    SetSpeed(0, -9 * kasoku);
   end;
 end;
 
 function TPlayer.limitPlus(X, delta, MAX: Single): Single;
 begin
   if FDash then
-    MAX := MAX * 1.7;
+    MAX := MAX * FFull_Speed;
   if X + delta > MAX then
     result := MAX
   else if X + delta < -MAX then
     result := -MAX
-  else if (X * delta < 0) and (X * (X + delta) < 0) then
-    result := 0
   else
     result := X + delta;
 end;
@@ -358,7 +349,7 @@ end;
 procedure TPlayer.SetSpeed(X, Y: Single);
 begin
   FSpeed_X := limitPlus(FSpeed_X, X, MAX_SPEED);
-  FSpeed_Y := limitPlus(FSpeed_Y, Y, 5 * MAX_SPEED);
+  FSpeed_Y := limitPlus(FSpeed_Y, Y, 5.5 * MAX_SPEED);
 end;
 
 { TForm3 }
@@ -407,24 +398,22 @@ begin
       player.Kasoku_X := -kasoku;
     VKRIGHT:
       player.Kasoku_X := kasoku;
-    VKDOWN:
-      ;
-    vkUP:
+    VKUP:
       player.Jump;
-    VKSPACE:
-      player.Dash := true;
   end;
+  if (KeyChar = ' ') and player.Ground then
+    player.Dash := true;
 end;
 
 procedure TForm3.FormKeyUp(Sender: TObject; var Key: Word;
   var KeyChar: WideChar; Shift: TShiftState);
 begin
   case Key of
-    VKSPACE:
-      player.FDash := false;
-  else
-    player.Kasoku_X := 0;
+    VKLEFT, VKRIGHT:
+      player.Kasoku_X := 0;
   end;
+  if KeyChar = ' ' then
+    player.Dash := false;
 end;
 
 procedure TForm3.UPDATE_INTERVALTimer(Sender: TObject);
