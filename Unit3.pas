@@ -14,7 +14,7 @@ type
     top1, top2, side1, side2, under1, under2, center: TPointF;
   end;
 
-  TPlayer = class
+  TPlayer = class(TComponent)
   private
     FMAX_SPEED: Single;
     FFull_Speed: Single;
@@ -26,13 +26,14 @@ type
     FGround: Boolean;
     FVisible: Boolean;
     FLetter: Char;
+    FOnBeginOut: TNotifyEvent;
     function limitPlus(X, delta, MAX: Single): Single;
   protected
     procedure SetSpeed(X, Y: Single);
     property Ground: Boolean read FGround write FGround;
     property Letter: Char read FLetter write FLetter;
   public
-    constructor Create;
+    constructor Create(AOWner: TComponent); override;
     procedure Jump;
     procedure CheckPoints(out CheckRec: TCheckRec; size: integer);
     procedure GameOver;
@@ -47,9 +48,10 @@ type
     property Full_Speed: Single read FFull_Speed write FFull_Speed;
     property State: TCharState read FState write FState;
     property Visible: Boolean read FVisible write FVisible;
+    property OnBeginOut: TNotifyEvent read FOnBeginOut write FOnBeginOut;
   end;
 
-  TDataField = class
+  TDataField = class(TComponent)
   const
     scroll = 10;
   private
@@ -67,7 +69,7 @@ type
     function IsBlock(position: TPointF): Boolean;
     function IsGameOver(player: TPlayer): Boolean;
   public
-    constructor Create(const str: string; players: TArray<TPlayer>;
+    constructor Create(AOwner: TComponent; const str: string; players: TArray<TPlayer>;
       const size: integer = 30);
     procedure Move;
     procedure GetImage(var Image: TBitmap);
@@ -87,6 +89,7 @@ type
     field: TDataField;
     player: TPlayer;
     buff: TBitmap;
+    procedure OutEffect(Sender: TObject);
   public
     { public êÈåæ }
     procedure UPDATE_INTERVALTimer(Sender: TObject);
@@ -186,11 +189,12 @@ begin
     result := Run;
 end;
 
-constructor TDataField.Create(const str: string; players: TArray<TPlayer>;
+constructor TDataField.Create(AOwner: TComponent; const str: string; players: TArray<TPlayer>;
   const size: integer = 30);
 var
   cnt: integer;
 begin
+  inherited Create(AOwner);
   FSize := size;
   kasoku := 0.15 * size;
   cnt := 1;
@@ -361,7 +365,7 @@ begin
   CheckRec.center := TPointF.Create(X + size / 2, Y + size / 5);
 end;
 
-constructor TPlayer.Create;
+constructor TPlayer.Create(AOWner: TComponent);
 begin
   inherited;
   FKasoku_Y := kasoku;
@@ -371,6 +375,8 @@ begin
 end;
 
 procedure TPlayer.GameOver;
+var
+  size, height: integer;
 begin
   FState := Sprite;
   FLetter := 'X';
@@ -378,19 +384,29 @@ begin
   FSpeed_X := 0;
   FKasoku_X := 0;
   FKasoku_Y := 0;
+  with Owner as TForm3 do
+  begin
+    size := field.FSize;
+    height := ClientHeight;
+  end;
   TTask.Run(
     procedure
     begin
-      Sleep(50);
-      FSpeed_Y := -10 * kasoku;
-      for var i := 1 to 3 do
+      if Assigned(FOnBeginOut) then
+        FOnBeginOut(Self);
+      if FY + size > Height then
       begin
-        FY := FY + FSpeed_Y;
-        Sleep(10);
+        Sleep(50);
+        FSpeed_Y := -3 * kasoku;
+        for var i := 1 to 10 do
+        begin
+          FY := FY + FSpeed_Y;
+          Sleep(1);
+        end;
       end;
       Sleep(1000);
       FSpeed_X := kasoku;
-      FSpeed_Y := -7 * kasoku;
+      FSpeed_Y := -3 * kasoku;
       for var i := 1 to 50 do
       begin
         FX := FX + FSpeed_X;
@@ -398,7 +414,7 @@ begin
         FSpeed_Y := FSpeed_Y + kasoku;
         Sleep(50);
       end;
-      FVisible:=false;
+      FVisible := false;
     end);
 end;
 
@@ -453,8 +469,9 @@ begin
     + 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
     + 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
   size := ClientHeight div 16;
-  player := TPlayer.Create;
-  field := TDataField.Create(str, [player], size);
+  player := TPlayer.Create(Self);
+  player.OnBeginOut := OutEffect;
+  field := TDataField.Create(Self,str, [player], size);
   FPSThread := TUpdate.Create;
   FPSThread.OnTerminate := terminated;
   buff := TBitmap.Create(ClientWidth, ClientHeight);
@@ -496,6 +513,11 @@ begin
   end;
   if KeyChar = ' ' then
     player.Dash := false;
+end;
+
+procedure TForm3.OutEffect(Sender: TObject);
+begin
+
 end;
 
 procedure TForm3.terminated(Sender: TObject);
