@@ -33,10 +33,10 @@ type
     property Ground: Boolean read FGround write FGround;
     property Letter: Char read FLetter write FLetter;
   public
-    constructor Create(AOWner: TComponent); override;
+    constructor Create(OWner: TComponent); override;
     procedure Jump;
     procedure CheckPoints(out CheckRec: TCheckRec; size: integer);
-    procedure GameOver;
+    procedure GameOver(Pop: Boolean);
     property X: Single read FX write FX;
     property Y: Single read FY write FY;
     property Kasoku_X: Single read FKasoku_X write FKasoku_X;
@@ -65,16 +65,19 @@ type
     function CheckJump(player: TPlayer): Boolean;
     function CheckState(player: TPlayer): TCharState;
     function CheckSideBlock(player: TPlayer): Boolean;
+    function GetPlayers(index: integer): TPlayer;
   protected
     function IsBlock(position: TPointF): Boolean;
     function IsGameOver(player: TPlayer): Boolean;
   public
-    constructor Create(AOwner: TComponent; const str: string; players: TArray<TPlayer>;
-      const size: integer = 30);
+    constructor Create(AOwner: TComponent; const str: string;
+      size: integer = 30);
     procedure Move;
     procedure GetImage(var Image: TBitmap);
+    procedure CreatePlayer;
     property Strings[X, Y: integer]: Char read GetStrings; default;
     property delta: Single read FDelta;
+    property Players[index: integer]: TPlayer read GetPlayers;
   end;
 
   TForm3 = class(TForm)
@@ -189,8 +192,8 @@ begin
     result := Run;
 end;
 
-constructor TDataField.Create(AOwner: TComponent; const str: string; players: TArray<TPlayer>;
-  const size: integer = 30);
+constructor TDataField.Create(AOwner: TComponent; const str: string;
+  size: integer = 30);
 var
   cnt: integer;
 begin
@@ -212,13 +215,18 @@ begin
   henkan['c'] := '~';
   henkan[' '] := 'Å@';
   henkan['X'] := 'X';
-  FPlayers := players;
-  for var i := 0 to High(players) do
+  CreatePlayer;
+  for var i := 0 to High(FPlayers) do
   begin
-    players[i].X := i * FSize;
-    players[i].Y := 13 * FSize;
-    players[i].MAX_SPEED := size * 0.2;
+    FPlayers[i].X := i * FSize;
+    FPlayers[i].Y := 13 * FSize;
+    FPlayers[i].MAX_SPEED := size * 0.2;
   end;
+end;
+
+procedure TDataField.CreatePlayer;
+begin
+  FPlayers := FPlayers + [TPlayer.Create(Self)];
 end;
 
 function TDataField.IsGameOver(player: TPlayer): Boolean;
@@ -289,6 +297,11 @@ begin
     end;
 end;
 
+function TDataField.GetPlayers(index: integer): TPlayer;
+begin
+  result := FPlayers[index];
+end;
+
 function TDataField.GetStrings(X, Y: integer): Char;
 begin
   if (X < 0) or (255 < X) or (Y < 0) or (15 < Y) then
@@ -348,7 +361,7 @@ begin
         continue;
     end;
     if IsGameOver(boy) then
-      boy.GameOver;
+      boy.GameOver(boy.Y + FSize > (OWner as TForm3).ClientHeight);
   end;
 end;
 
@@ -365,7 +378,7 @@ begin
   CheckRec.center := TPointF.Create(X + size / 2, Y + size / 5);
 end;
 
-constructor TPlayer.Create(AOWner: TComponent);
+constructor TPlayer.Create;
 begin
   inherited;
   FKasoku_Y := kasoku;
@@ -374,9 +387,7 @@ begin
   FVisible := true;
 end;
 
-procedure TPlayer.GameOver;
-var
-  size, height: integer;
+procedure TPlayer.GameOver(Pop: Boolean);
 begin
   FState := Sprite;
   FLetter := 'X';
@@ -384,24 +395,19 @@ begin
   FSpeed_X := 0;
   FKasoku_X := 0;
   FKasoku_Y := 0;
-  with Owner as TForm3 do
-  begin
-    size := field.FSize;
-    height := ClientHeight;
-  end;
   TTask.Run(
     procedure
     begin
       if Assigned(FOnBeginOut) then
         FOnBeginOut(Self);
-      if FY + size > Height then
+      if Pop then
       begin
         Sleep(50);
         FSpeed_Y := -3 * kasoku;
         for var i := 1 to 10 do
         begin
           FY := FY + FSpeed_Y;
-          Sleep(1);
+          Sleep(50);
         end;
       end;
       Sleep(1000);
@@ -469,9 +475,9 @@ begin
     + 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
     + 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
   size := ClientHeight div 16;
-  player := TPlayer.Create(Self);
+  field := TDataField.Create(Self, str, size);
+  player := field.Players[0];
   player.OnBeginOut := OutEffect;
-  field := TDataField.Create(Self,str, [player], size);
   FPSThread := TUpdate.Create;
   FPSThread.OnTerminate := terminated;
   buff := TBitmap.Create(ClientWidth, ClientHeight);
