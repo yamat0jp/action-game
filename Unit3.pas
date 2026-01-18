@@ -72,6 +72,7 @@ type
   public
     constructor Create(AOwner: TComponent; const str: string;
       size: integer = 30);
+    destructor Destroy; override;
     procedure Move;
     procedure GetImage(var Image: TBitmap);
     procedure CreatePlayer;
@@ -90,7 +91,6 @@ type
   private
     { private êÈåæ }
     field: TDataField;
-    player: TPlayer;
     buff: TBitmap;
     procedure OutEffect(Sender: TObject);
   public
@@ -227,6 +227,13 @@ end;
 procedure TDataField.CreatePlayer;
 begin
   FPlayers := FPlayers + [TPlayer.Create(Self)];
+end;
+
+destructor TDataField.Destroy;
+begin
+  for var player in FPlayers do
+    player.Free;
+  inherited;
 end;
 
 function TDataField.IsGameOver(player: TPlayer): Boolean;
@@ -407,7 +414,7 @@ begin
         for var i := 1 to 10 do
         begin
           FY := FY + FSpeed_Y;
-          Sleep(50);
+          Sleep(10);
         end;
       end;
       Sleep(1000);
@@ -476,8 +483,7 @@ begin
     + 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
   size := ClientHeight div 16;
   field := TDataField.Create(Self, str, size);
-  player := field.Players[0];
-  player.OnBeginOut := OutEffect;
+  field.Players[0].OnBeginOut := OutEffect;
   FPSThread := TUpdate.Create;
   FPSThread.OnTerminate := terminated;
   buff := TBitmap.Create(ClientWidth, ClientHeight);
@@ -486,14 +492,16 @@ end;
 procedure TForm3.FormDestroy(Sender: TObject);
 begin
   FPSThread.Free;
-  player.Free;
   field.Free;
   buff.Free;
 end;
 
 procedure TForm3.FormKeyDown(Sender: TObject; var Key: Word;
 var KeyChar: WideChar; Shift: TShiftState);
+var
+  player: TPlayer;
 begin
+  player := field.Players[0];
   if player.State = Sprite then
     Exit;
   case Key of
@@ -510,7 +518,10 @@ end;
 
 procedure TForm3.FormKeyUp(Sender: TObject; var Key: Word;
 var KeyChar: WideChar; Shift: TShiftState);
+var
+  player: TPlayer;
 begin
+  player := field.Players[0];
   if player.State = Sprite then
     Exit;
   case Key of
@@ -533,7 +544,7 @@ end;
 
 procedure TForm3.UPDATE_INTERVALTimer(Sender: TObject);
 begin
-  if not player.Visible then
+  if not field.FPlayers[0].Visible then
     FPSThread.Terminate;
   field.Move;
   field.GetImage(buff);
