@@ -71,10 +71,10 @@ type
     function IsGameOver(player: TPlayer): Boolean;
   public
     constructor Create(AOwner: TComponent; const str: string;
-      size: integer = 30);
+      size: integer = 30); virtual;
     destructor Destroy; override;
     procedure Move;
-    procedure GetImage(var Image: TBitmap);
+    procedure DrawImage(Canvas: TCanvas);
     procedure CreatePlayer;
     property Strings[X, Y: integer]: Char read GetStrings; default;
     property delta: Single read FDelta;
@@ -91,7 +91,6 @@ type
   private
     { private êÈåæ }
     field: TDataField;
-    buff: TBitmap;
     procedure OutEffect(Sender: TObject);
   public
     { public êÈåæ }
@@ -246,27 +245,27 @@ begin
     (player.Letter <> 'X');
 end;
 
-procedure TDataField.GetImage(var Image: TBitmap);
+procedure TDataField.DrawImage(Canvas: TCanvas);
 var
   a, b: Single;
   rect: TRectF;
   chrec: TCheckRec;
 begin
-  if Image.Canvas.BeginScene then
+  if Canvas.BeginScene then
     try
-      Image.Canvas.Fill.Color := TAlphaColors.Black;
-      Image.Canvas.Font.size := FSize;
-      Image.Canvas.FillRect(TRect.Create(0, 0, Image.Width, Image.Height), 1);
-      Image.Canvas.Fill.Color := TAlphaColors.White;
+      Canvas.Fill.Color := TAlphaColors.Black;
+      Canvas.Font.size := FSize;
+      Canvas.FillRect(TRect.Create(0, 0, Canvas.Width, Canvas.Height), 1);
+      Canvas.Fill.Color := TAlphaColors.White;
       for var j := 0 to 15 do
         for var i := 0 to 255 do
         begin
           a := i * FSize;
           b := j * FSize;
-          if (a - FDelta < 0) or (a - FDelta > Image.Width) then
+          if (a - FDelta < 0) or (a - FDelta > Canvas.Width) then
             continue;
           rect := TRectF.Create(a - FDelta, b, a - FDelta + FSize, b + FSize);
-          Image.Canvas.FillText(rect, Strings[i, j], false, 1.0, [],
+          Canvas.FillText(rect, Strings[i, j], false, 1.0, [],
             TTextAlign.center);
         end;
       for var boy in FPlayers do
@@ -275,7 +274,7 @@ begin
           continue;
         a := boy.X - FDelta;
         b := boy.Y;
-        Image.Canvas.FillText(TRectF.Create(a, b, a + FSize, b + FSize),
+        Canvas.FillText(TRectF.Create(a, b, a + FSize, b + FSize),
           boy.Letter, false, 1, [], TTextAlign.center);
         boy.CheckPoints(chrec, FSize);
         with chrec do
@@ -288,19 +287,19 @@ begin
           under2.X := under2.X - FDelta;
           center.X := center.X - FDelta;
         end;
-        Image.Canvas.Stroke.Thickness := 5;
-        Image.Canvas.Stroke.Color := TAlphaColors.Green;
-        Image.Canvas.DrawLine(chrec.top1, chrec.top1, 1.0);
-        Image.Canvas.DrawLine(chrec.top2, chrec.top2, 1.0);
-        Image.Canvas.DrawLine(chrec.side1, chrec.side1, 1.0);
-        Image.Canvas.DrawLine(chrec.side2, chrec.side2, 1.0);
-        Image.Canvas.DrawLine(chrec.under1, chrec.under1, 1.0);
-        Image.Canvas.DrawLine(chrec.under2, chrec.under2, 1.0);
-        Image.Canvas.Stroke.Color := TAlphaColors.Red;
-        Image.Canvas.DrawLine(chrec.center, chrec.center, 1.0);
+        Canvas.Stroke.Thickness := 5;
+        Canvas.Stroke.Color := TAlphaColors.Green;
+        Canvas.DrawLine(chrec.top1, chrec.top1, 1.0);
+        Canvas.DrawLine(chrec.top2, chrec.top2, 1.0);
+        Canvas.DrawLine(chrec.side1, chrec.side1, 1.0);
+        Canvas.DrawLine(chrec.side2, chrec.side2, 1.0);
+        Canvas.DrawLine(chrec.under1, chrec.under1, 1.0);
+        Canvas.DrawLine(chrec.under2, chrec.under2, 1.0);
+        Canvas.Stroke.Color := TAlphaColors.Red;
+        Canvas.DrawLine(chrec.center, chrec.center, 1.0);
       end;
     finally
-      Image.Canvas.EndScene;
+      Canvas.EndScene;
     end;
 end;
 
@@ -486,14 +485,12 @@ begin
   field.Players[0].OnBeginOut := OutEffect;
   FPSThread := TUpdate.Create;
   FPSThread.OnTerminate := terminated;
-  buff := TBitmap.Create(ClientWidth, ClientHeight);
 end;
 
 procedure TForm3.FormDestroy(Sender: TObject);
 begin
   FPSThread.Free;
   field.Free;
-  buff.Free;
 end;
 
 procedure TForm3.FormKeyDown(Sender: TObject; var Key: Word;
@@ -547,13 +544,7 @@ begin
   if not field.FPlayers[0].Visible then
     FPSThread.Terminate;
   field.Move;
-  field.GetImage(buff);
-  if Canvas.BeginScene then
-    try
-      Canvas.DrawBitmap(buff, ClientRect, ClientRect, 1, true);
-    finally
-      Canvas.EndScene;
-    end;
+  field.DrawImage(Canvas);
 end;
 
 end.
