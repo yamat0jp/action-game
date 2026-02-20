@@ -14,7 +14,9 @@ type
     top1, top2, side1, side2, under1, under2, center: TPointF;
   end;
 
-  TPlayer = class(TComponent)
+  TDataField = class;
+
+  TPlayer = class
   private
     FMAX_SPEED: Single;
     FFull_Speed: Single;
@@ -27,15 +29,18 @@ type
     FVisible: Boolean;
     FLetter: Char;
     FOnBeginOut: TNotifyEvent;
+    [weak]
+    FParent: TDataField;
     function limitPlus(X, delta, MAX: Single): Single;
   protected
     procedure SetSpeed(X, Y: Single);
     property Ground: Boolean read FGround write FGround;
     property Letter: Char read FLetter write FLetter;
+    property Parent: TDataField read FParent write FParent;
   public
-    constructor Create(OWner: TComponent); override;
+    constructor Create(AOwner: TDataField);
     procedure Jump;
-    procedure CheckPoints(out CheckRec: TCheckRec; size: integer);
+    procedure CheckPoints(out CheckRec: TCheckRec);
     procedure GameOver(Pop: Boolean);
     property X: Single read FX write FX;
     property Y: Single read FY write FY;
@@ -62,6 +67,7 @@ type
     henkan: array [Char] of Char;
     FSize: integer;
     FDelta: Single;
+    FKasoku: Single;
     function GetStrings(X, Y: integer): Char;
     function CheckHeadBlock(player: TPlayer): Boolean;
     function CheckJump(player: TPlayer): Boolean;
@@ -71,6 +77,7 @@ type
   protected
     function IsBlock(position: TPointF): Boolean;
     function IsGameOver(player: TPlayer): Boolean;
+    property kasoku: Single read FKasoku write FKasoku;
   public
     constructor Create(AOwner: TComponent; const str: string;
       size: integer = 30);
@@ -110,12 +117,11 @@ implementation
 
 {$R *.fmx}
 
-uses update, System.Math, System.Character, System.Threading;
+uses System.Math, System.Character, System.Threading, update;
 
 var
-  FPSThread: TUpdate;
   arr: array of Char = ['Å†', 'Å°', 'ÅH'];
-  kasoku: Single;
+  FPSThread: TUpdate;
 
   { TDataField }
 
@@ -123,7 +129,7 @@ function TDataField.CheckHeadBlock(player: TPlayer): Boolean;
 var
   rec: TCheckRec;
 begin
-  player.CheckPoints(rec, FSize);
+  player.CheckPoints(rec);
   if (player.Speed_Y < 0) and IsBlock(rec.top1) or IsBlock(rec.top2) then
   begin
     player.Y := Ceil(rec.top1.Y / FSize) * FSize;
@@ -138,7 +144,7 @@ function TDataField.CheckJump(player: TPlayer): Boolean;
 var
   rec: TCheckRec;
 begin
-  player.CheckPoints(rec, FSize);
+  player.CheckPoints(rec);
   if (player.Speed_Y >= 0) and IsBlock(rec.under1) and IsBlock(rec.under2) and
     not IsBlock(rec.center) then
   begin
@@ -166,7 +172,7 @@ function TDataField.CheckSideBlock(player: TPlayer): Boolean;
 var
   rec: TCheckRec;
 begin
-  player.CheckPoints(rec, FSize);
+  player.CheckPoints(rec);
   if ((player.Speed_X < 0) and IsBlock(rec.side1)) or
     ((player.Speed_X > 0) and IsBlock(rec.side2)) then
   begin
@@ -278,7 +284,7 @@ begin
         b := boy.Y;
         Canvas.FillText(TRectF.Create(a, b, a + FSize, b + FSize), boy.Letter,
           false, 1, [], TTextAlign.center);
-        boy.CheckPoints(chrec, FSize);
+        boy.CheckPoints(chrec);
         with chrec do
         begin
           top1.X := top1.X - FDelta;
@@ -375,8 +381,11 @@ end;
 
 { TPlayer }
 
-procedure TPlayer.CheckPoints(out CheckRec: TCheckRec; size: integer);
+procedure TPlayer.CheckPoints(out CheckRec: TCheckRec);
+var
+  size: integer;
 begin
+  size := Parent.FSize;
   CheckRec.top1 := TPointF.Create(X + size / 4, Y);
   CheckRec.top2 := TPointF.Create(X + size - size / 4, Y);
   CheckRec.side1 := TPointF.Create(X, Y + size / 2);
@@ -386,17 +395,21 @@ begin
   CheckRec.center := TPointF.Create(X + size / 2, Y + size / 5);
 end;
 
-constructor TPlayer.Create;
+constructor TPlayer.Create(AOwner: TDataField);
 begin
-  inherited;
-  FKasoku_Y := kasoku;
+  inherited Create;
+  FParent := AOwner;
+  FKasoku_Y := AOwner.kasoku;
   FFull_Speed := 2.0;
   FLetter := 'A';
   FVisible := true;
 end;
 
 procedure TPlayer.GameOver(Pop: Boolean);
+var
+  kasoku: Single;
 begin
+  kasoku := Parent.kasoku;
   FState := Sprite;
   FLetter := 'X';
   FDash := false;
@@ -437,7 +450,7 @@ begin
   if FGround then
   begin
     FGround := false;
-    SetSpeed(0, -9 * kasoku);
+    SetSpeed(0, -9 * Parent.kasoku);
   end;
 end;
 
@@ -505,9 +518,9 @@ begin
     Exit;
   case Key of
     VKLEFT:
-      player.Kasoku_X := -kasoku;
+      player.Kasoku_X := -field.kasoku;
     VKRIGHT:
-      player.Kasoku_X := kasoku;
+      player.Kasoku_X := field.kasoku;
     VKUP:
       player.Jump;
   end;
