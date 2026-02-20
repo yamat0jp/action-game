@@ -53,10 +53,12 @@ type
 
   TDataField = class(TComponent)
   const
+    hei = 16;
+    wid = 256;
     scroll = 10;
   private
     FPlayers: TArray<TPlayer>;
-    FField: array [0 .. 255, 0 .. 15] of Char;
+    FField: array [0 .. wid - 1, 0 .. hei - 1] of Char;
     henkan: array [Char] of Char;
     FSize: integer;
     FDelta: Single;
@@ -71,7 +73,7 @@ type
     function IsGameOver(player: TPlayer): Boolean;
   public
     constructor Create(AOwner: TComponent; const str: string;
-      size: integer = 30); virtual;
+      size: integer = 30);
     destructor Destroy; override;
     procedure Move;
     procedure DrawImage(Canvas: TCanvas);
@@ -200,8 +202,8 @@ begin
   FSize := size;
   kasoku := 0.15 * size;
   cnt := 1;
-  for var j := 0 to 15 do
-    for var i := 0 to 254 do
+  for var j := 0 to hei - 1 do
+    for var i := 0 to wid - 1 do
     begin
       FField[i, j] := str[cnt];
       inc(cnt);
@@ -257,8 +259,8 @@ begin
       Canvas.Font.size := FSize;
       Canvas.FillRect(TRect.Create(0, 0, Canvas.Width, Canvas.Height), 1);
       Canvas.Fill.Color := TAlphaColors.White;
-      for var j := 0 to 15 do
-        for var i := 0 to 255 do
+      for var j := 0 to hei - 1 do
+        for var i := 0 to wid - 1 do
         begin
           a := i * FSize;
           b := j * FSize;
@@ -274,8 +276,8 @@ begin
           continue;
         a := boy.X - FDelta;
         b := boy.Y;
-        Canvas.FillText(TRectF.Create(a, b, a + FSize, b + FSize),
-          boy.Letter, false, 1, [], TTextAlign.center);
+        Canvas.FillText(TRectF.Create(a, b, a + FSize, b + FSize), boy.Letter,
+          false, 1, [], TTextAlign.center);
         boy.CheckPoints(chrec, FSize);
         with chrec do
         begin
@@ -310,7 +312,7 @@ end;
 
 function TDataField.GetStrings(X, Y: integer): Char;
 begin
-  if (X < 0) or (255 < X) or (Y < 0) or (15 < Y) then
+  if (X < 0) or (wid - 1 < X) or (Y < 0) or (hei - 1 < Y) then
     result := 'X'
   else
     result := henkan[FField[X, Y]];
@@ -464,23 +466,23 @@ var
   str: string;
   size: integer;
 begin
-  str := '                                                                                                                                                                                                                                                               '
-    + '                                                                                                                                                                                                                                                               '
-    + '                                                                                                                                                                                                                                                               '
-    + '                                                                                   cccc                                                                                                                                                                        '
-    + '                   ccc              cccc                          ccc              cccc                 cccc                                                                                                                                                   '
-    + '                   ccc     ccccc    cccc               ccc        ccc                                   cccc                                                                                                                                                   '
-    + '                           ccccc                       ccc                     bbbbbbbb   bbbq                                                                                                                                                                 '
-    + '                      q                                                                                                                                                                                                                                        '
-    + '                                                                                                                                                                                                                                                               '
-    + '                                                                                                                                                                                                                                                               '
-    + '                                                                            bqb              b      bb                                                                                                                                                         '
-    + '  m             q   bqbqb             pp     pp  m      pp                                       m                                                                                                                                                             '
-    + ' mmm                        pp        pp     pp mmm     pp      m                               mmm                                                                                                                                                            '
-    + 'mmmmm      tttttmmm    ttt  pp        pp ttttppmmmmm    pptttttmmm    ttt               tttt   mmmmm                                                                                                                                                           '
-    + 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
-    + 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-  size := ClientHeight div 16;
+  str := '                                                                                                                                                                                                                                                                '
+    + '                                                                                                                                                                                                                                                                '
+    + '                                                                                                                                                                                                                                                                '
+    + '                                                                                   cccc                                                                                                                                                                         '
+    + '                   ccc              cccc                          ccc              cccc                 cccc                                                                                                                                                    '
+    + '                   ccc     ccccc    cccc               ccc        ccc                                   cccc                                                                                                                                                    '
+    + '                           ccccc                       ccc                     bbbbbbbb   bbbq                                                                                                                                                                  '
+    + '                      q                                                                                                                                                                                                                                         '
+    + '                                                                                                                                                                                                                                                                '
+    + '                                                                                                                                                                                                                                                                '
+    + '                                                                            bqb              b      bb                                                                                                                                                          '
+    + '  m             q   bqbqb             pp     pp  m      pp                                       m                                                                                                                                                              '
+    + ' mmm                        pp        pp     pp mmm     pp      m                               mmm                                                                                                                                                             '
+    + 'mmmmm      tttttmmm    ttt  pp        pp ttttppmmmmm    pptttttmmm    ttt               tttt   mmmmm                                                                                                                                                            '
+    + 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+    + 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  size := ClientHeight div TDataField.hei;
   field := TDataField.Create(Self, str, size);
   field.Players[0].OnBeginOut := OutEffect;
   FPSThread := TUpdate.Create;
