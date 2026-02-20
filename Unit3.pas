@@ -29,7 +29,6 @@ type
     FVisible: Boolean;
     FLetter: Char;
     FOnBeginOut: TNotifyEvent;
-    [weak]
     FParent: TDataField;
     function limitPlus(X, delta, MAX: Single): Single;
   protected
