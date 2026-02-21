@@ -1,11 +1,9 @@
-unit Unit3;
+unit Field;
 
 interface
 
-uses
-  System.SysUtils, System.Types, System.UITypes, System.Classes,
-  System.Variants,
-  FMX.Types, FMX.Controls, FMX.Forms, FMX.Graphics, FMX.Dialogs, FMX.Objects;
+uses System.Classes, System.Types, System.UITypes, System.SysUtils, FMX.Types,
+  FMX.StdCtrls, FMX.Controls, FMX.Graphics, update;
 
 type
   TCharState = (Run, afJump, bfChakuchi, Sprite);
@@ -33,7 +31,6 @@ type
     function limitPlus(X, delta, MAX: Single): Single;
   protected
     procedure SetSpeed(X, Y: Single);
-    property Ground: Boolean read FGround write FGround;
     property Letter: Char read FLetter write FLetter;
     property Parent: TDataField read FParent write FParent;
   public
@@ -41,6 +38,7 @@ type
     procedure Jump;
     procedure CheckPoints(out CheckRec: TCheckRec);
     procedure GameOver(Pop: Boolean);
+    property Ground: Boolean read FGround write FGround;
     property X: Single read FX write FX;
     property Y: Single read FY write FY;
     property Kasoku_X: Single read FKasoku_X write FKasoku_X;
@@ -55,7 +53,7 @@ type
     property OnBeginOut: TNotifyEvent read FOnBeginOut write FOnBeginOut;
   end;
 
-  TDataField = class(TComponent)
+  TDataField = class(TPanel)
   const
     hei = 16;
     wid = 256;
@@ -64,63 +62,50 @@ type
     FPlayers: TArray<TPlayer>;
     FField: array [0 .. wid - 1, 0 .. hei - 1] of Char;
     henkan: array [Char] of Char;
-    FSize: integer;
+    FFieldSize: integer;
     FDelta: Single;
     FKasoku: Single;
+    FFPSThread: TUpdate;
+    FOnInterval: TNotifyEvent;
     function GetStrings(X, Y: integer): Char;
     function CheckHeadBlock(player: TPlayer): Boolean;
     function CheckJump(player: TPlayer): Boolean;
     function CheckState(player: TPlayer): TCharState;
     function CheckSideBlock(player: TPlayer): Boolean;
     function GetPlayers(index: integer): TPlayer;
+    procedure SetFieldData(const Value: string);
+    function GetTerminate: TNotifyEvent;
+    procedure SetTerminate(const Value: TNotifyEvent);
   protected
     function IsBlock(position: TPointF): Boolean;
     function IsGameOver(player: TPlayer): Boolean;
-    property kasoku: Single read FKasoku write FKasoku;
   public
-    constructor Create(AOwner: TComponent; const str: string;
-      size: integer = 30);
+    constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    procedure Move;
-    procedure DrawImage(Canvas: TCanvas);
+    procedure PlayerMove; virtual;
+    procedure DrawImage; virtual;
     procedure CreatePlayer;
+    procedure UPDATE_INTERVALTimer(Sender: TObject); virtual;
     property Strings[X, Y: integer]: Char read GetStrings; default;
     property delta: Single read FDelta;
     property Players[index: integer]: TPlayer read GetPlayers;
-  end;
-
-  TForm3 = class(TForm)
-    procedure FormCreate(Sender: TObject);
-    procedure FormDestroy(Sender: TObject);
-    procedure FormKeyDown(Sender: TObject; var Key: Word; var KeyChar: WideChar;
-      Shift: TShiftState);
-    procedure FormKeyUp(Sender: TObject; var Key: Word; var KeyChar: WideChar;
-      Shift: TShiftState);
-  private
-    { private êÈåæ }
-    field: TDataField;
-    procedure OutEffect(Sender: TObject);
-  public
-    { public êÈåæ }
-    procedure UPDATE_INTERVALTimer(Sender: TObject);
-    procedure terminated(Sender: TObject);
+    property kasoku: Single read FKasoku write FKasoku;
+  published
+    property FieldData: string write SetFieldData;
+    property FieldSize: integer read FFieldSize write FFieldSize;
+    property OnInterval: TNotifyEvent read FOnInterval write FOnInterval;
+    property OnTerminate: TNotifyEvent read GetTerminate write SetTerminate;
   end;
 
 const
   UPDATE_FPS = 60;
 
-var
-  Form3: TForm3;
-
 implementation
 
-{$R *.fmx}
-
-uses System.Math, System.Character, System.Threading, update;
+uses System.Math, System.Character, System.Threading;
 
 var
   arr: array of Char = ['Å†', 'Å°', 'ÅH'];
-  FPSThread: TUpdate;
 
   { TDataField }
 
@@ -131,7 +116,7 @@ begin
   player.CheckPoints(rec);
   if (player.Speed_Y < 0) and IsBlock(rec.top1) or IsBlock(rec.top2) then
   begin
-    player.Y := Ceil(rec.top1.Y / FSize) * FSize;
+    player.Y := Ceil(rec.top1.Y / FFieldSize) * FFieldSize;
     player.FSpeed_Y := 0;
     result := true;
   end
@@ -147,7 +132,7 @@ begin
   if (player.Speed_Y >= 0) and IsBlock(rec.under1) and IsBlock(rec.under2) and
     not IsBlock(rec.center) then
   begin
-    player.Y := Floor(rec.under1.Y / FSize) * FSize - FSize;
+    player.Y := Floor(rec.under1.Y / FFieldSize) * FFieldSize - FFieldSize;
     player.FSpeed_Y := 0;
     player.Ground := true;
     result := false;
@@ -155,7 +140,7 @@ begin
   else if not player.Ground and (player.Speed_Y >= 0) and IsBlock(rec.center)
   then
   begin
-    player.Y := Floor(rec.center.Y / FSize) * FSize - FSize;
+    player.Y := Floor(rec.center.Y / FFieldSize) * FFieldSize - FFieldSize;
     player.FSpeed_Y := 0;
     player.Ground := true;
     result := false;
@@ -176,9 +161,9 @@ begin
     ((player.Speed_X > 0) and IsBlock(rec.side2)) then
   begin
     if player.Speed_X < 0 then
-      player.X := Ceil(rec.side1.X / FSize) * FSize
+      player.X := Ceil(rec.side1.X / FFieldSize) * FFieldSize
     else
-      player.X := Floor(rec.side2.X / FSize) * FSize - FSize - 1;
+      player.X := Floor(rec.side2.X / FFieldSize) * FFieldSize - FFieldSize - 1;
     player.FSpeed_X := 0;
     result := true;
   end
@@ -198,21 +183,29 @@ begin
     result := Run;
 end;
 
-constructor TDataField.Create(AOwner: TComponent; const str: string;
-  size: integer = 30);
-var
-  cnt: integer;
+constructor TDataField.Create(AOwner: TComponent);
 begin
-  inherited Create(AOwner);
-  FSize := size;
-  kasoku := 0.15 * size;
-  cnt := 1;
-  for var j := 0 to hei - 1 do
-    for var i := 0 to wid - 1 do
-    begin
-      FField[i, j] := str[cnt];
-      inc(cnt);
-    end;
+  inherited;
+  Align := TAlignLayout.Client;
+  FFieldSize := 30;
+  FieldData :=
+    '                                                                                                                                                                                                                                                                '
+    + '                                                                                                                                                                                                                                                                '
+    + '                                                                                                                                                                                                                                                                '
+    + '                                                                                   cccc                                                                                                                                                                         '
+    + '                   ccc              cccc                          ccc              cccc                 cccc                                                                                                                                                    '
+    + '                   ccc     ccccc    cccc               ccc        ccc                                   cccc                                                                                                                                                    '
+    + '                           ccccc                       ccc                     bbbbbbbb   bbbq                                                                                                                                                                  '
+    + '                      q                                                                                                                                                                                                                                         '
+    + '                                                                                                                                                                                                                                                                '
+    + '                                                                                                                                                                                                                                                                '
+    + '                                                                            bqb              b      bb                                                                                                                                                          '
+    + '  m             q   bqbqb             pp     pp  m      pp                                       m                                                                                                                                                              '
+    + ' mmm                        pp        pp     pp mmm     pp      m                               mmm                                                                                                                                                             '
+    + 'mmmmm      tttttmmm    ttt  pp        pp ttttppmmmmm    pptttttmmm    ttt               tttt   mmmmm                                                                                                                                                            '
+    + 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
+    + 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+  kasoku := 0.15 * FFieldSize;
   henkan['t'] := 'Y';
   henkan['m'] := 'Ç÷';
   henkan['p'] := 'Å†';
@@ -224,10 +217,11 @@ begin
   CreatePlayer;
   for var i := 0 to High(FPlayers) do
   begin
-    FPlayers[i].X := i * FSize;
-    FPlayers[i].Y := 13 * FSize;
-    FPlayers[i].MAX_SPEED := size * 0.2;
+    FPlayers[i].X := i * FFieldSize;
+    FPlayers[i].Y := 13 * FFieldSize;
+    FPlayers[i].MAX_SPEED := FFieldSize * 0.2;
   end;
+  FFPSThread := TUpdate.Create(Self);
 end;
 
 procedure TDataField.CreatePlayer;
@@ -239,6 +233,7 @@ destructor TDataField.Destroy;
 begin
   for var player in FPlayers do
     player.Free;
+  FFPSThread.Free;
   inherited;
 end;
 
@@ -246,13 +241,13 @@ function TDataField.IsGameOver(player: TPlayer): Boolean;
 var
   X, Y: Single;
 begin
-  X := player.X + FSize / 2;
-  Y := player.Y + FSize / 2;
-  result := (Strings[Floor(X / FSize), Floor(Y / FSize)] = 'X') and
+  X := player.X + FFieldSize / 2;
+  Y := player.Y + FFieldSize / 2;
+  result := (Strings[Floor(X / FFieldSize), Floor(Y / FFieldSize)] = 'X') and
     (player.Letter <> 'X');
 end;
 
-procedure TDataField.DrawImage(Canvas: TCanvas);
+procedure TDataField.DrawImage;
 var
   a, b: Single;
   rect: TRectF;
@@ -261,17 +256,18 @@ begin
   if Canvas.BeginScene then
     try
       Canvas.Fill.Color := TAlphaColors.Black;
-      Canvas.Font.size := FSize;
+      Canvas.Font.size := FFieldSize;
       Canvas.FillRect(TRect.Create(0, 0, Canvas.Width, Canvas.Height), 1);
       Canvas.Fill.Color := TAlphaColors.White;
       for var j := 0 to hei - 1 do
         for var i := 0 to wid - 1 do
         begin
-          a := i * FSize;
-          b := j * FSize;
+          a := i * FFieldSize;
+          b := j * FFieldSize;
           if (a - FDelta < 0) or (a - FDelta > Canvas.Width) then
             continue;
-          rect := TRectF.Create(a - FDelta, b, a - FDelta + FSize, b + FSize);
+          rect := TRectF.Create(a - FDelta, b, a - FDelta + FFieldSize,
+            b + FFieldSize);
           Canvas.FillText(rect, Strings[i, j], false, 1.0, [],
             TTextAlign.center);
         end;
@@ -281,8 +277,8 @@ begin
           continue;
         a := boy.X - FDelta;
         b := boy.Y;
-        Canvas.FillText(TRectF.Create(a, b, a + FSize, b + FSize), boy.Letter,
-          false, 1, [], TTextAlign.center);
+        Canvas.FillText(TRectF.Create(a, b, a + FFieldSize, b + FFieldSize),
+          boy.Letter, false, 1, [], TTextAlign.center);
         boy.CheckPoints(chrec);
         with chrec do
         begin
@@ -323,22 +319,27 @@ begin
     result := henkan[FField[X, Y]];
 end;
 
+function TDataField.GetTerminate: TNotifyEvent;
+begin
+  result := FFPSThread.OnTerminate;
+end;
+
 function TDataField.IsBlock(position: TPointF): Boolean;
 var
   i, j: integer;
 begin
-  i := Floor(position.X / FSize);
-  j := Floor(position.Y / FSize);
+  i := Floor(position.X / FFieldSize);
+  j := Floor(position.Y / FFieldSize);
   result := Strings[i, j].IsInArray(arr);
 end;
 
-procedure TDataField.Move;
+procedure TDataField.PlayerMove;
   procedure main(player: TPlayer);
   begin
     player.X := player.X + player.Speed_X;
     player.Y := player.Y + player.Speed_Y;
-    if player.X > scroll * FSize then
-      FDelta := player.X - scroll * FSize;
+    if player.X > scroll * FFieldSize then
+      FDelta := player.X - scroll * FFieldSize;
   end;
 
 begin
@@ -374,8 +375,41 @@ begin
         continue;
     end;
     if IsGameOver(boy) then
-      boy.GameOver(boy.Y + FSize > (OWner as TForm3).ClientHeight);
+      boy.GameOver(boy.Y + FFieldSize > hei * FFieldSize);
   end;
+end;
+
+procedure TDataField.SetFieldData(const Value: string);
+var
+  cnt: integer;
+begin
+  cnt := 1;
+  for var j := 0 to hei - 1 do
+    for var i := 0 to wid - 1 do
+    begin
+      FField[i, j] := Value[cnt];
+      inc(cnt);
+    end;
+end;
+
+procedure TDataField.SetTerminate(const Value: TNotifyEvent);
+begin
+  FFPSThread.OnTerminate := Value;
+end;
+
+procedure TDataField.UPDATE_INTERVALTimer(Sender: TObject);
+begin
+  if Assigned(FOnInterval) then
+    FOnInterval(Sender);
+  for var player in FPlayers do
+  begin
+    if player.Visible then
+      continue;
+    FFPSThread.Terminate;
+    break;
+  end;
+  PlayerMove;
+  DrawImage;
 end;
 
 { TPlayer }
@@ -384,7 +418,7 @@ procedure TPlayer.CheckPoints(out CheckRec: TCheckRec);
 var
   size: integer;
 begin
-  size := Parent.FSize;
+  size := Parent.FieldSize;
   CheckRec.top1 := TPointF.Create(X + size / 4, Y);
   CheckRec.top2 := TPointF.Create(X + size - size / 4, Y);
   CheckRec.side1 := TPointF.Create(X, Y + size / 2);
@@ -469,96 +503,6 @@ procedure TPlayer.SetSpeed(X, Y: Single);
 begin
   FSpeed_X := limitPlus(FSpeed_X, X, MAX_SPEED);
   FSpeed_Y := limitPlus(FSpeed_Y, Y, 5.5 * MAX_SPEED);
-end;
-
-{ TForm3 }
-
-procedure TForm3.FormCreate(Sender: TObject);
-var
-  str: string;
-  size: integer;
-begin
-  str := '                                                                                                                                                                                                                                                                '
-    + '                                                                                                                                                                                                                                                                '
-    + '                                                                                                                                                                                                                                                                '
-    + '                                                                                   cccc                                                                                                                                                                         '
-    + '                   ccc              cccc                          ccc              cccc                 cccc                                                                                                                                                    '
-    + '                   ccc     ccccc    cccc               ccc        ccc                                   cccc                                                                                                                                                    '
-    + '                           ccccc                       ccc                     bbbbbbbb   bbbq                                                                                                                                                                  '
-    + '                      q                                                                                                                                                                                                                                         '
-    + '                                                                                                                                                                                                                                                                '
-    + '                                                                                                                                                                                                                                                                '
-    + '                                                                            bqb              b      bb                                                                                                                                                          '
-    + '  m             q   bqbqb             pp     pp  m      pp                                       m                                                                                                                                                              '
-    + ' mmm                        pp        pp     pp mmm     pp      m                               mmm                                                                                                                                                             '
-    + 'mmmmm      tttttmmm    ttt  pp        pp ttttppmmmmm    pptttttmmm    ttt               tttt   mmmmm                                                                                                                                                            '
-    + 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'
-    + 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb  bbbbbbbbbbbbbbb   bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-  size := ClientHeight div TDataField.hei;
-  field := TDataField.Create(Self, str, size);
-  field.Players[0].OnBeginOut := OutEffect;
-  FPSThread := TUpdate.Create;
-  FPSThread.OnTerminate := terminated;
-end;
-
-procedure TForm3.FormDestroy(Sender: TObject);
-begin
-  FPSThread.Free;
-  field.Free;
-end;
-
-procedure TForm3.FormKeyDown(Sender: TObject; var Key: Word;
-var KeyChar: WideChar; Shift: TShiftState);
-var
-  player: TPlayer;
-begin
-  player := field.Players[0];
-  if player.State = Sprite then
-    Exit;
-  case Key of
-    VKLEFT:
-      player.Kasoku_X := -field.kasoku;
-    VKRIGHT:
-      player.Kasoku_X := field.kasoku;
-    VKUP:
-      player.Jump;
-  end;
-  if (KeyChar = ' ') and player.Ground then
-    player.Dash := true;
-end;
-
-procedure TForm3.FormKeyUp(Sender: TObject; var Key: Word;
-var KeyChar: WideChar; Shift: TShiftState);
-var
-  player: TPlayer;
-begin
-  player := field.Players[0];
-  if player.State = Sprite then
-    Exit;
-  case Key of
-    VKLEFT, VKRIGHT:
-      player.Kasoku_X := 0;
-  end;
-  if KeyChar = ' ' then
-    player.Dash := false;
-end;
-
-procedure TForm3.OutEffect(Sender: TObject);
-begin
-
-end;
-
-procedure TForm3.terminated(Sender: TObject);
-begin
-  Close;
-end;
-
-procedure TForm3.UPDATE_INTERVALTimer(Sender: TObject);
-begin
-  if not field.FPlayers[0].Visible then
-    FPSThread.Terminate;
-  field.Move;
-  field.DrawImage(Canvas);
 end;
 
 end.

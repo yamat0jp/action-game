@@ -9,7 +9,9 @@ type
   TUpdate = class(TThread)
   private
     { Private 宣言 }
+    obj: TObject;
   public
+    constructor Create(Sender: TObject);
     procedure Execute; override;
   end;
 
@@ -46,9 +48,15 @@ implementation
 
 }
 
-uses Unit3;
+uses Field;
 
 { TUpdate }
+
+constructor TUpdate.Create(Sender: TObject);
+begin
+  inherited Create;
+  obj := Sender;
+end;
 
 procedure TUpdate.Execute;
 var
@@ -59,13 +67,13 @@ begin
   hTimer := CreateWaitableTimer(nil, True, nil);
   while not Terminated do
   begin
-    DueTime := -Int64(1000 div Unit3.UPDATE_FPS) * 10000; // 負数で相対時間（100ns単位）
+    DueTime := -Int64(1000 div UPDATE_FPS) * 10000; // 負数で相対時間（100ns単位）
     SetWaitableTimer(hTimer, PLargeInteger(@DueTime)^, 0, nil, nil, False);
     WaitForSingleObject(hTimer, INFINITE);
     Synchronize(
       procedure
       begin
-        Form3.UPDATE_INTERVALTimer(nil);
+        TDataField(obj).UPDATE_INTERVALTimer(nil);
       end);
   end;
   CloseHandle(hTimer);
