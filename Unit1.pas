@@ -28,6 +28,7 @@ var
 implementation
 
 {$R *.fmx}
+{$R *.Windows.fmx MSWINDOWS}
 
 uses Field;
 
@@ -38,7 +39,6 @@ procedure TForm1.FormCreate(Sender: TObject);
 begin
   Field := TDataField.Create(Self);
   Field.Parent := Self;
-  Field.FieldSize := ClientHeight div TDataField.hei;
   Field.OnTerminate := terminated;
 end;
 
